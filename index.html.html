@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="APEX Club"/>
+<meta name="theme-color" content="#0A0E14"/>
+<title>APEX Private Club</title>
+
+<!-- PWA Manifest (inline) -->
+<script>
+const MANIFEST = {
+  name: "APEX Private Club",
+  short_name: "APEX Club",
+  description: "신영증권 APEX 프라이빗클럽 멤버십 앱",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#0A0E14",
+  theme_color: "#0A0E14",
+  orientation: "portrait",
+  icons: [
+    { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230A0E14'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-size='280' font-family='serif' fill='%23C9A961'%3E✦%3C/text%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml" }
+  ]
+};
+const blob = new Blob([JSON.stringify(MANIFEST)], {type:'application/json'});
+const mUrl = URL.createObjectURL(blob);
+const link = document.createElement('link');
+link.rel = 'manifest'; link.href = mUrl;
+document.head.appendChild(link);
+</script>
+
+<!-- Apple touch icon (inline SVG→PNG via canvas not needed; use data URI) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230A0E14'/%3E%3Ctext x='90' y='125' text-anchor='middle' font-size='100' font-family='serif' fill='%23C9A961'%3E✦%3C/text%3E%3C/svg%3E"/>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet"/>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#0A0E14;font-family:"Pretendard Variable",Pretendard,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+#root{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+::-webkit-scrollbar{display:none}
+scrollbar-width:none;
+@keyframes fadeUp{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+</style>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
+
+/* ─── TOKENS ─── */
+const T = {
+  bg:'#0A0E14', surface:'#12181F', elevated:'#1B232C',
+  divider:'rgba(139,151,168,0.12)', hairline:'rgba(139,151,168,0.18)',
+  textHi:'#F2F5F9', text:'#D7DDE6', textMid:'#8B97A8', textLow:'#5A6478', textDim:'#3D4655',
+  blue:'#5B8CFF', blueGlow:'rgba(91,140,255,0.18)',
+  gold:'#C9A961', cyan:'#7FE0D4', red:'#E5616C', green:'#5BC98C', orange:'#E8935A',
+  metalBlue:'linear-gradient(135deg,#2A3A5E 0%,#1A2138 50%,#2A3A5E 100%)',
+  metalDark:'linear-gradient(135deg,#1B232C 0%,#0F141B 50%,#1B232C 100%)',
+  metalGold:'linear-gradient(135deg,#C9A961 0%,#8B7339 50%,#C9A961 100%)',
+  heroBlue:'linear-gradient(160deg,#1A2138 0%,#0A0E14 60%)',
+  fontKr:'"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif',
+  fontMono:'"SF Mono",ui-monospace,Menlo,monospace',
+  fontSerif:'"Noto Serif KR",Georgia,serif',
+};
+
+/* ─── TIERS  피오니(최상) > 가드니아 > 프리지아 > 아이리스 ─── */
+const TIERS = {
+  Peony:    {label:'PEONY',    ko:'피오니',  color:'#E8C4D0', grad:'linear-gradient(135deg,#E8C4D0,#C4879A)', desc:'최우수 프리미엄'},
+  Gardenia: {label:'GARDENIA', ko:'가드니아', color:'#D4C5A9', grad:'linear-gradient(135deg,#E2D9C5,#B8A98A)', desc:'우수 VIP'},
+  Freesia:  {label:'FREESIA',  ko:'프리지아', color:'#B8C9E8', grad:'linear-gradient(135deg,#C8D8F0,#8AAAD4)', desc:'VIP'},
+  Iris:     {label:'IRIS',     ko:'아이리스', color:'#9FB4D9', grad:'linear-gradient(135deg,#BFD0E8,#6E84A8)', desc:'일반'},
+};
+
+/* ─── DATA ─── */
+const EVENTS = [
+  {id:'e1',category:'신영컬쳐스',title:'쇼팽 녹턴 전곡 연주회',artist:'피아니스트 김선욱',venue:'예술의전당 IBK챔버홀',date:'2026-05-14',time:'19:30',dday:9,capacity:'전석 초청',seats:'잔여 12석',tone:'gold',tag:'공연',summary:'폴란드 쇼팽협회 후원으로 진행되는 녹턴 전곡 단독 연주회. 프라이빗클럽 회원 한정 초청. 공연 후 리셉션이 이어집니다.'},
+  {id:'e2',category:'투자 세미나',title:'2026 글로벌 매크로 전망',artist:'리서치센터장 이재훈',venue:'본사 35F 클럽라운지 / 온라인',date:'2026-05-09',time:'18:00',dday:4,capacity:'오프라인 40명',seats:'잔여 7석',tone:'blue',tag:'세미나',summary:'FOMC 이후 금리 경로, 미·중 무역 재편이 한국 자산배분에 미치는 영향. Q&A 다과회 포함.'},
+  {id:'e3',category:'자녀 교육·승계',title:'Next-Gen 아카데미 1기',artist:'서울대 경영대 정구현 교수 외',venue:'본사 컨퍼런스룸 A',date:'2026-05-21',time:'14:00',dday:16,capacity:'회원 자녀 20명',seats:'잔여 5석',tone:'cool',tag:'교육',summary:'20·30대 자녀를 위한 가업 승계, 자산이전, 글로벌 투자 입문 4주 과정의 첫 강의.'},
+  {id:'e4',category:'미술·클래식',title:'Frieze Seoul 2026 프리뷰',artist:'큐레이터 이수진 동행',venue:'COEX D홀',date:'2026-05-28',time:'16:00',dday:23,capacity:'소수 정예 12명',seats:'잔여 3석',tone:'mono',tag:'아트투어',summary:'일반 공개 하루 전 VIP Day 입장. 큐레이터 동행 도슨트 + 갤러리 디너.'},
+  {id:'e5',category:'법률·세무',title:'상속·증여 1:1 상담회',artist:'법무법인 율촌 파트너 4인',venue:'본사 12F 상담실',date:'2026-06-04',time:'10:00–17:00',dday:30,capacity:'시간당 1세션',seats:'잔여 2세션',tone:'gold',tag:'상담회',summary:'40분 단독 상담. 사전 자료 검토 후 맞춤 시나리오 2가지 제시.'},
+];
+const CARDNEWS = [
+  {id:'cn1',tone:'blue',tag:'MARKET',title:'Fed 5월 FOMC, 시장이 놓친 한 줄',date:'2026-05-03',read:'4분',pages:6,cover:'연준이 흘린 한 단어,\n시장은 다르게 읽었다.'},
+  {id:'cn2',tone:'gold',tag:'WEALTH',title:'증여·상속 절세, 2026년 바뀌는 5가지',date:'2026-05-01',read:'6분',pages:8,cover:'5월 1일 시행.\n알아둘 다섯 가지.'},
+  {id:'cn3',tone:'mono',tag:'CULTURE',title:'뉴욕 메트, 한국실 재개관 이야기',date:'2026-04-28',read:'5분',pages:7,cover:'한국미술,\n다시 메트의 중심으로.'},
+  {id:'cn4',tone:'cool',tag:'ALTS',title:'왜 지금, 인프라 펀드인가',date:'2026-04-25',read:'7분',pages:9,cover:'금리 정점 이후,\n인프라가 답이었다.'},
+];
+const BOOKINGS_INIT = [
+  {id:'b1',type:'event',title:'쇼팽 녹턴 전곡 연주회',date:'2026-05-14 19:30',status:'확정',code:'PC-2614-K'},
+  {id:'b2',type:'consult',title:'강현우 수석 PB · 상속 설계',date:'2026-05-08 15:00',status:'확정',code:'PC-CN-0508'},
+  {id:'b3',type:'event',title:'2026 글로벌 매크로 전망',date:'2026-05-09 18:00',status:'대기',code:'PC-2609-S'},
+];
+const NOTIFS_INIT = [
+  {id:'n1',type:'event',title:'쇼팽 녹턴 전곡 연주회 좌석이 확정되었습니다',time:'방금 전',unread:true},
+  {id:'n2',type:'consult',title:'강현우 PB가 상담 자료를 첨부했습니다',time:'1시간 전',unread:true},
+  {id:'n3',type:'card',title:'신규 카드뉴스 · Fed 5월 FOMC',time:'3시간 전',unread:true},
+  {id:'n4',type:'event',title:'Frieze Seoul 프리뷰 잔여 3석',time:'어제',unread:false},
+  {id:'n5',type:'system',title:'6월 멤버십 라운지 운영 안내',time:'2일 전',unread:false},
+];
+const CONSULT_AREAS = [
+  {id:'inv',label:'자산관리·투자',icon:'◈',desc:'포트폴리오 진단 및 리밸런싱'},
+  {id:'tax',label:'세무·상속',icon:'◇',desc:'증여·상속 시나리오 설계'},
+  {id:'cor',label:'법인·가업승계',icon:'◉',desc:'지배구조 및 승계 플랜'},
+  {id:'alt',label:'대체투자',icon:'◐',desc:'PEF, 부동산, 해외 사모'},
+  {id:'ret',label:'은퇴·연금',icon:'○',desc:'현금흐름 및 노후 설계'},
+  {id:'oth',label:'기타 종합상담',icon:'◯',desc:'복합 자문이 필요한 경우'},
+];
+const PBS = [
+  {id:'pb1',name:'강현우',title:'수석 PB',center:'강남센터',tenure:'18년',specialty:'상속·증여 설계',avail:'오늘 가능',hue:210},
+  {id:'pb2',name:'서지윤',title:'책임 PB',center:'강남센터',tenure:'12년',specialty:'글로벌 자산배분',avail:'내일 가능',hue:160},
+  {id:'pb3',name:'이정민',title:'수석 PB',center:'본사',tenure:'21년',specialty:'법인·가업승계',avail:'5/8 가능',hue:40},
+  {id:'pb4',name:'박세아',title:'책임 PB',center:'분당센터',tenure:'9년',specialty:'대체투자·PEF',avail:'오늘 가능',hue:280},
+];
+
+/* ─── HELPERS ─── */
+function fmtDate(s){
+  const[y,m,d]=s.split('-').map(Number);
+  const dow=['일','월','화','수','목','금','토'][new Date(y,m-1,d).getDay()];
+  return `${m}월 ${d}일 (${dow})`;
+}
+function genCode(){ return 'PC-'+Math.random().toString(36).slice(2,6).toUpperCase()+'-'+Date.now().toString(36).slice(-4).toUpperCase(); }
+
+/* ─── SERVICE WORKER (PWA offline) ─── */
+if('serviceWorker' in navigator){
+  const SW = `
+    const CACHE='apex-v1';
+    const PRECACHE=['/'];
+    self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE))); self.skipWaiting(); });
+    self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });
+    self.addEventListener('fetch',e=>{
+      if(e.request.method!=='GET')return;
+      e.respondWith(fetch(e.request).then(r=>{ const c=r.clone(); caches.open(CACHE).then(cache=>cache.put(e.request,c)); return r; }).catch(()=>caches.match(e.request)));
+    });
+  `;
+  const blob = new Blob([SW],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+}
+
+/* ─── SVG: CHAMBER HALL ─── */
+function ChamberHall({h=200}){
+  return (
+    <svg viewBox="0 0 390 220" style={{width:'100%',height:h,display:'block'}}>
+      <defs>
+        <radialGradient id="sp" cx="50%" cy="0%" r="70%"><stop offset="0%" stopColor="#FFF5CC" stopOpacity="0.28"/><stop offset="100%" stopColor="#FFF5CC" stopOpacity="0"/></radialGradient>
+        <linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1A1408"/><stop offset="100%" stopColor="#0A0C0F"/></linearGradient>
+        <linearGradient id="cL" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#3D1A0A"/><stop offset="100%" stopColor="#6B2E12" stopOpacity="0.5"/></linearGradient>
+        <linearGradient id="cR" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#6B2E12" stopOpacity="0.5"/><stop offset="100%" stopColor="#3D1A0A"/></linearGradient>
+        <linearGradient id="fb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0D0D12" stopOpacity="0"/><stop offset="100%" stopColor="#0A0E14" stopOpacity="1"/></linearGradient>
+      </defs>
+      <rect width="390" height="220" fill="#0D0D12"/>
+      <rect x="0" y="0" width="390" height="25" fill="#16141A"/>
+      {[30,60,90,120,150,180,210,240,270,300,330,360].map(x=><circle key={x} cx={x} cy={12} r={3} fill="#C9A961" opacity="0.6"/>)}
+      <ellipse cx="195" cy="12" rx="24" ry="4" fill="#B8922A" opacity="0.35"/>
+      {[-14,-7,0,7,14].map((dx,i)=><line key={i} x1={195+dx} y1={16} x2={195+dx*0.3} y2={30} stroke="#C9A961" strokeWidth="0.7" opacity="0.5"/>)}
+      {[-8,-3,0,3,8].map((dx,i)=><circle key={i} cx={195+dx} cy={32} r={1.6} fill="#FFE08A" opacity="0.8"/>)}
+      <rect x="0" y="0" width="390" height="220" fill="url(#sp)"/>
+      <rect x="40" y="126" width="310" height="64" fill="url(#fl)"/>
+      <path d="M0,25 C16,36 13,76 17,126 L40,126 L40,25 Z" fill="url(#cL)"/>
+      <path d="M390,25 C374,36 377,76 373,126 L350,126 L350,25 Z" fill="url(#cR)"/>
+      <g transform="translate(140,88)">
+        <path d="M0,42 C0,22 12,0 42,0 C72,0 110,8 110,42 L110,50 L0,50 Z" fill="#080808"/>
+        <path d="M0,42 C0,22 12,0 42,0 C72,0 110,8 110,42" stroke="#222" strokeWidth="1.5" fill="none"/>
+        <path d="M6,40 C6,22 15,3 42,3 C67,3 104,10 104,40" fill="#0F0F0F"/>
+        <rect x="8" y="42" width="94" height="8" rx="1" fill="#EDE8DC"/>
+        {[10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86,90,94,98].map((x,i)=><rect key={i} x={x} y={42} width={2.8} height={7.5} rx="0.4" fill="#111"/>)}
+        <rect x="4" y="50" width="5" height="20" fill="#080808"/>
+        <rect x="101" y="50" width="5" height="20" fill="#080808"/>
+      </g>
+      <g transform="translate(181,86)">
+        <ellipse cx="18" cy="46" rx="9" ry="13" fill="#1A1208"/>
+        <circle cx="18" cy="28" r="7" fill="#2A1E0E"/>
+        <path d="M9,41 C0,45-4,47 2,49" stroke="#1A1208" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+        <path d="M27,41 C36,45 40,47 34,49" stroke="#1A1208" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+      </g>
+      {[[60,180],[90,175],[120,182],[150,178],[178,183],[208,177],[238,180],[268,175],[298,182],[328,178],
+        [75,200],[105,196],[135,202],[163,198],[193,203],[223,197],[253,200],[283,196],[313,202]].map(([x,y],i)=>(
+        <g key={i}><circle cx={x} cy={y-11} r={4} fill="#1A1820" opacity="0.6"/><ellipse cx={x} cy={y} rx={6} ry={4} fill="#1A1820" opacity="0.5"/></g>
+      ))}
+      <rect x="0" y="140" width="390" height="80" fill="url(#fb)"/>
+      <text x="195" y="214" textAnchor="middle" fontSize="8" fill="#C9A961" fontFamily="monospace" letterSpacing="3" opacity="0.6">IBK CHAMBER HALL · SEOUL ARTS CENTER</text>
+    </svg>
+  );
+}
+
+/* ─── SVG: PB AVATAR ─── */
+function PBAvatar({name,hue,size=56}){
+  const id=`pba${hue}${size}`;
+  const bg1=`hsl(${hue},35%,22%)`,bg2=`hsl(${hue},30%,14%)`,face=`hsl(${hue+20},20%,74%)`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" style={{borderRadius:'50%',flexShrink:0,display:'block'}}>
+      <defs>
+        <radialGradient id={`g${id}`} cx="50%" cy="30%" r="70%"><stop offset="0%" stopColor={bg1}/><stop offset="100%" stopColor={bg2}/></radialGradient>
+        <clipPath id={`c${id}`}><circle cx="28" cy="28" r="28"/></clipPath>
+      </defs>
+      <circle cx="28" cy="28" r="28" fill={`url(#g${id})`}/>
+      <ellipse cx="28" cy="58" rx="22" ry="16" fill={`hsl(${hue},25%,12%)`} clipPath={`url(#c${id})`}/>
+      <ellipse cx="28" cy="54" rx="10" ry="12" fill={`hsl(${hue},15%,88%)`} clipPath={`url(#c${id})`}/>
+      <path d="M26,44 L28,56 L30,44 L29,42 L27,42 Z" fill={`hsl(${hue},55%,38%)`} clipPath={`url(#c${id})`}/>
+      <circle cx="28" cy="24" r="12" fill={face}/>
+      <path d="M17,22 C17,10 39,10 39,22 C39,15 36,11 28,11 C20,11 17,15 17,22 Z" fill={`hsl(${hue+10},20%,18%)`}/>
+      <ellipse cx="24" cy="23" rx="1.9" ry="2.1" fill={`hsl(${hue+10},20%,18%)`}/>
+      <ellipse cx="32" cy="23" rx="1.9" ry="2.1" fill={`hsl(${hue+10},20%,18%)`}/>
+      <path d="M22,20 Q24,19 26,20" stroke={`hsl(${hue+10},20%,22%)`} strokeWidth="1.1" fill="none"/>
+      <path d="M30,20 Q32,19 34,20" stroke={`hsl(${hue+10},20%,22%)`} strokeWidth="1.1" fill="none"/>
+      <path d="M25,29 Q28,31 31,29" stroke={`hsl(${hue+10},20%,44%)`} strokeWidth="1.1" fill="none"/>
+    </svg>
+  );
+}
+
+/* ─── UI ATOMS ─── */
+function Ey({c,children}){ return <div style={{fontFamily:T.fontMono,fontSize:10,letterSpacing:2,textTransform:'uppercase',color:c||T.textMid,fontWeight:500}}>{children}</div>; }
+function Cd({children,sx={},onClick,p=16}){ return <div onClick={onClick} style={{background:T.surface,borderRadius:16,padding:p,border:`0.5px solid ${T.hairline}`,cursor:onClick?'pointer':'default',...sx}}>{children}</div>; }
+function Bt({children,v='primary',full=false,sz='md',onClick,disabled=false,sx={}}){
+  const vs={primary:{background:T.blue,color:'#0A0E14',border:'none'},gold:{background:T.metalGold,color:'#1A1408',border:'none'},ghost:{background:'transparent',color:T.text,border:`0.5px solid ${T.hairline}`},danger:{background:'rgba(229,97,108,0.1)',color:T.red,border:`0.5px solid rgba(229,97,108,0.28)`}}[v]||{};
+  const ss={sm:{height:36,padding:'0 14px',fontSize:13,borderRadius:8},md:{height:48,padding:'0 20px',fontSize:15,borderRadius:12},lg:{height:56,padding:'0 24px',fontSize:16,borderRadius:12}}[sz];
+  return <button onClick={onClick} disabled={disabled} style={{cursor:disabled?'not-allowed':'pointer',fontFamily:T.fontKr,fontWeight:600,width:full?'100%':undefined,opacity:disabled?0.4:1,outline:'none',...vs,...ss,...sx}}>{children}</button>;
+}
+function Chip({children,active,onClick}){
+  return <button onClick={onClick} style={{padding:'7px 14px',borderRadius:999,background:active?T.blue:'rgba(139,151,168,0.07)',color:active?'#0A0E14':T.text,fontFamily:T.fontKr,fontSize:12,fontWeight:500,border:active?'none':`0.5px solid ${T.hairline}`,cursor:'pointer',whiteSpace:'nowrap',outline:'none',flexShrink:0}}>{children}</button>;
+}
+function Hdr({title,onBack,right,sub}){
+  return <div style={{padding:'8px 20px 14px',display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+    {onBack&&<button onClick={onBack} style={{width:36,height:36,borderRadius:18,background:'rgba(139,151,168,0.08)',border:`0.5px solid ${T.hairline}`,color:T.text,cursor:'pointer',fontSize:20,display:'flex',alignItems:'center',justifyContent:'center',padding:0,outline:'none',flexShrink:0}}>‹</button>}
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontFamily:T.fontKr,fontSize:18,fontWeight:600,color:T.textHi,letterSpacing:-0.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+      {sub&&<div style={{fontSize:12,color:T.textMid,marginTop:2}}>{sub}</div>}
+    </div>
+    {right&&<div style={{flexShrink:0}}>{right}</div>}
+  </div>;
+}
+function Placeholder({tone='mono',height=180}){
+  const c={mono:['#1B232C','#252E39'],blue:['#1A2138','#2A3A5E'],gold:['#2A2418','#3D3422'],cool:['#0F1A26','#19283A']}[tone]||['#1B232C','#252E39'];
+  return <div style={{height,flexShrink:0,background:`repeating-linear-gradient(45deg,${c[0]} 0,${c[0]} 8px,${c[1]} 8px,${c[1]} 16px)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <span style={{fontFamily:T.fontMono,fontSize:9,color:T.textMid,letterSpacing:1.5,background:'rgba(10,14,20,0.6)',padding:'3px 8px',borderRadius:2}}>IMAGE</span>
+  </div>;
+}
+function Toast({msg,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,2600);return()=>clearTimeout(t);},[]);
+  return <div style={{position:'fixed',bottom:100,left:'50%',transform:'translateX(-50%)',background:'rgba(27,35,44,0.97)',backdropFilter:'blur(16px)',border:`0.5px solid ${T.hairline}`,borderRadius:14,padding:'12px 20px',zIndex:9999,whiteSpace:'nowrap',fontFamily:T.fontKr,fontSize:13,color:T.textHi,display:'flex',alignItems:'center',gap:10,boxShadow:'0 8px 32px rgba(0,0,0,0.4)',animation:'fadeUp .25s ease'}}><span style={{color:T.green,fontSize:16}}>✓</span>{msg}</div>;
+}
+
+/* ─── STATUS BAR ─── */
+function StatusBar({unread}){
+  const[t,setT]=useState('');
+  useEffect(()=>{
+    const f=()=>{const n=new Date();return`${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;};
+    setT(f());const iv=setInterval(()=>setT(f()),30000);return()=>clearInterval(iv);
+  },[]);
+  return <div style={{height:44,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',flexShrink:0,paddingTop:'env(safe-area-inset-top,0px)'}}>
+    <span style={{fontFamily:T.fontMono,fontSize:15,fontWeight:600,color:T.textHi}}>{t||'9:41'}</span>
+    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+      {unread>0&&<span style={{background:T.red,color:'#fff',fontSize:10,fontWeight:700,borderRadius:999,padding:'1px 5px',fontFamily:T.fontMono}}>{unread}</span>}
+      <span style={{fontSize:11,color:T.textMid}}>●●●●</span>
+      <span style={{width:22,height:11,border:`1px solid ${T.textHi}`,borderRadius:3,padding:1,display:'flex',alignItems:'center'}}>
+        <span style={{width:'75%',height:'100%',background:T.green,borderRadius:1}}/>
+      </span>
+    </div>
+  </div>;
+}
+
+/* ─── TAB BAR ─── */
+const TABS=[{id:'home',label:'홈'},{id:'events',label:'일정'},{id:'cards',label:'카드뉴스'},{id:'me',label:'마이'}];
+function TabBar({active,onChange,unread}){
+  const Icon=({id,on})=>{
+    const s=on?T.blue:T.textLow;
+    if(id==='home') return <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H14v-5h-4v5H4a1 1 0 01-1-1V9.5z" stroke={s} strokeWidth="1.5" strokeLinejoin="round"/></svg>;
+    if(id==='events') return <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="4" width="16" height="15" rx="2" stroke={s} strokeWidth="1.5"/><path d="M7 2v4M15 2v4M3 9h16" stroke={s} strokeWidth="1.5" strokeLinecap="round"/><circle cx="8" cy="14" r="1.5" fill={s}/><circle cx="14" cy="14" r="1.5" fill={s}/></svg>;
+    if(id==='cards') return <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="3" width="7" height="9" rx="1.5" stroke={s} strokeWidth="1.5"/><rect x="12" y="3" width="7" height="4" rx="1.5" stroke={s} strokeWidth="1.5"/><rect x="12" y="10" width="7" height="9" rx="1.5" stroke={s} strokeWidth="1.5"/><rect x="3" y="15" width="7" height="4" rx="1.5" stroke={s} strokeWidth="1.5"/></svg>;
+    return <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="3.5" stroke={s} strokeWidth="1.5"/><path d="M4 19c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke={s} strokeWidth="1.5" strokeLinecap="round"/></svg>;
+  };
+  return <div style={{flexShrink:0,display:'flex',background:'linear-gradient(to top,rgba(10,14,20,0.99) 70%,rgba(10,14,20,0.85))',borderTop:`0.5px solid ${T.hairline}`,paddingBottom:'env(safe-area-inset-bottom,16px)',paddingTop:8}}>
+    {TABS.map(tab=>{const on=tab.id===active;return(
+      <button key={tab.id} onClick={()=>onChange(tab.id)} style={{flex:1,padding:'2px 0 4px',background:'transparent',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:4,cursor:'pointer',position:'relative',outline:'none'}}>
+        <Icon id={tab.id} on={on}/>
+        {tab.id==='me'&&unread>0&&<span style={{position:'absolute',top:0,right:'22%',width:8,height:8,borderRadius:4,background:T.red,border:`1.5px solid ${T.bg}`}}/>}
+        <span style={{fontSize:10,fontFamily:T.fontKr,fontWeight:on?600:400,color:on?T.textHi:T.textLow}}>{tab.label}</span>
+      </button>
+    );})}
+  </div>;
+}
+
+/* ─── CARD THUMB ─── */
+function CardThumb({card,onClick,wide=false}){
+  const acc={blue:T.blue,gold:T.gold,mono:T.textMid,cool:T.cyan}[card.tone];
+  const bg={blue:T.metalBlue,gold:'linear-gradient(135deg,#2A2418,#3D3422)',mono:T.metalDark,cool:'linear-gradient(135deg,#0F1A26,#19283A)'}[card.tone];
+  return <div onClick={onClick} style={{minWidth:wide?'calc(100vw - 40px)':168,height:wide?268:216,flexShrink:0,borderRadius:14,background:bg,cursor:'pointer',padding:16,display:'flex',flexDirection:'column',border:`0.5px solid ${T.hairline}`}}>
+    <Ey c={acc}>{card.tag}</Ey>
+    <div style={{fontFamily:T.fontSerif,fontSize:wide?20:15,fontWeight:500,color:T.textHi,letterSpacing:-0.3,lineHeight:1.35,whiteSpace:'pre-line',marginTop:10,flex:1}}>{card.cover}</div>
+    <div style={{display:'flex',justifyContent:'space-between',fontFamily:T.fontMono,fontSize:10,color:T.textMid}}><span>{card.read}</span><span>{card.pages}P</span></div>
+  </div>;
+}
+
+/* ─── SCREENS ─── */
+
+function HomeScreen({tier,nav,bookings,favorited,toggleFav}){
+  const tm=TIERS[tier];
+  const ev=EVENTS[0];
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <div style={{padding:'4px 20px 16px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <Ey c={tm.color}>APEX PRIVATE CLUB · {tm.label}</Ey>
+        <button onClick={()=>nav('notifications')} style={{position:'relative',width:36,height:36,borderRadius:18,background:'rgba(139,151,168,0.08)',border:`0.5px solid ${T.hairline}`,color:T.text,cursor:'pointer',padding:0,outline:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2a5 5 0 00-5 5v2L3 11v1h12v-1l-1-2V7a5 5 0 00-5-5z" stroke={T.text} strokeWidth="1.4"/><path d="M7 13a2 2 0 004 0" stroke={T.text} strokeWidth="1.4"/></svg>
+          <span style={{position:'absolute',top:7,right:7,width:7,height:7,borderRadius:4,background:T.red,border:`1.5px solid ${T.bg}`}}/>
+        </button>
+      </div>
+      <div style={{fontFamily:T.fontSerif,fontSize:21,fontWeight:500,color:T.textHi,letterSpacing:-0.4,lineHeight:1.3}}>안녕하세요, <span style={{color:tm.color}}>김도현</span> 님</div>
+      <div style={{fontSize:12,color:T.textMid,marginTop:4}}>이번 주 추천 일정이 {EVENTS.slice(0,3).length}건 있습니다</div>
+    </div>
+
+    <div style={{padding:'0 20px 16px'}}>
+      <div onClick={()=>nav('event-detail',ev)} style={{borderRadius:22,overflow:'hidden',cursor:'pointer',border:`0.5px solid ${T.hairline}`}}>
+        <ChamberHall h={180}/>
+        <div style={{padding:'14px 16px 16px',background:T.heroBlue}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
+            <Ey c={T.gold}>{ev.category}</Ey>
+            <span style={{fontSize:11,color:T.textMid,fontFamily:T.fontMono}}>D-{ev.dday}</span>
+          </div>
+          <div style={{fontFamily:T.fontSerif,fontSize:17,fontWeight:500,color:T.textHi,lineHeight:1.35,marginBottom:5}}>{ev.title}</div>
+          <div style={{fontSize:11,color:T.text,marginBottom:11}}>{ev.artist} · {ev.venue}</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontFamily:T.fontMono,fontSize:11,color:T.textMid}}>{fmtDate(ev.date)} · {ev.time}</span>
+            <span style={{fontSize:10,fontFamily:T.fontMono,color:T.gold,padding:'3px 8px',borderRadius:999,border:`0.5px solid rgba(201,169,97,0.4)`}}>{ev.seats}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style={{padding:'0 20px 18px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+      <button onClick={()=>nav('consult')} style={{padding:'14px',borderRadius:16,background:T.metalBlue,border:`0.5px solid ${T.hairline}`,textAlign:'left',cursor:'pointer',outline:'none'}}>
+        <div style={{fontSize:20,color:T.blue,marginBottom:5}}>◈</div>
+        <div style={{fontSize:13,fontWeight:600,color:T.textHi,fontFamily:T.fontKr}}>PB 상담 예약</div>
+        <div style={{fontSize:10,color:T.textMid,marginTop:2,fontFamily:T.fontKr}}>3분이면 충분합니다</div>
+      </button>
+      <button onClick={()=>nav('events')} style={{padding:'14px',borderRadius:16,background:T.metalDark,border:`0.5px solid ${T.hairline}`,textAlign:'left',cursor:'pointer',outline:'none'}}>
+        <div style={{fontSize:20,color:T.gold,marginBottom:5}}>▦</div>
+        <div style={{fontSize:13,fontWeight:600,color:T.textHi,fontFamily:T.fontKr}}>전체 일정 보기</div>
+        <div style={{fontSize:10,color:T.textMid,marginTop:2,fontFamily:T.fontKr}}>이번 달 {EVENTS.length}건</div>
+      </button>
+    </div>
+
+    <div style={{padding:'0 20px 10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <span style={{fontFamily:T.fontKr,fontSize:15,fontWeight:600,color:T.textHi}}>다가오는 일정</span>
+      <button onClick={()=>nav('events')} style={{background:'transparent',border:'none',color:T.textMid,fontSize:11,cursor:'pointer',fontFamily:T.fontKr,outline:'none'}}>전체 ›</button>
+    </div>
+    <div style={{padding:'0 20px 20px',display:'flex',flexDirection:'column',gap:10}}>
+      {EVENTS.slice(1,3).map(ev=>(
+        <Cd key={ev.id} onClick={()=>nav('event-detail',ev)} p={13}>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+            <div style={{width:48,textAlign:'center',flexShrink:0,paddingRight:12,borderRight:`0.5px solid ${T.hairline}`}}>
+              <div style={{fontFamily:T.fontMono,fontSize:9,color:T.textMid}}>{ev.date.split('-')[1]}월</div>
+              <div style={{fontFamily:T.fontSerif,fontSize:22,color:T.textHi,fontWeight:500,lineHeight:1.1}}>{Number(ev.date.split('-')[2])}</div>
+              <div style={{fontSize:9,color:ev.dday<=7?T.gold:T.textLow,fontFamily:T.fontMono,marginTop:2}}>D-{ev.dday}</div>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <Ey>{ev.tag}</Ey>
+              <div style={{fontFamily:T.fontKr,fontSize:14,fontWeight:600,color:T.textHi,marginTop:3,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.title}</div>
+              <div style={{fontSize:11,color:T.textMid,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.time} · {ev.venue}</div>
+            </div>
+          </div>
+        </Cd>
+      ))}
+    </div>
+
+    <div style={{padding:'0 20px 10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <span style={{fontFamily:T.fontKr,fontSize:15,fontWeight:600,color:T.textHi}}>이번 주 카드뉴스</span>
+      <button onClick={()=>nav('cards')} style={{background:'transparent',border:'none',color:T.textMid,fontSize:11,cursor:'pointer',fontFamily:T.fontKr,outline:'none'}}>전체 ›</button>
+    </div>
+    <div style={{display:'flex',gap:12,overflowX:'auto',padding:'0 20px 4px',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+      {CARDNEWS.slice(0,3).map(c=><CardThumb key={c.id} card={c} onClick={()=>nav('card-detail',c)}/>)}
+      <div style={{minWidth:4,flexShrink:0}}/>
+    </div>
+  </div>;
+}
+
+function EventsScreen({nav,favorited,toggleFav}){
+  const cats=['전체','신영컬쳐스','투자 세미나','자녀 교육·승계','미술·클래식','법률·세무'];
+  const[cat,setCat]=useState('전체');
+  const list=cat==='전체'?EVENTS:EVENTS.filter(e=>e.category===cat);
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <div style={{padding:'4px 20px 0'}}>
+      <Ey>SCHEDULE · 2026년 5–6월</Ey>
+      <div style={{fontFamily:T.fontSerif,fontSize:25,fontWeight:500,color:T.textHi,letterSpacing:-0.5,marginTop:5,marginBottom:14}}>행사 일정</div>
+    </div>
+    <div style={{padding:'0 20px 16px',display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+      {cats.map(c=><Chip key={c} active={cat===c} onClick={()=>setCat(c)}>{c}</Chip>)}
+    </div>
+    <div style={{padding:'0 20px',display:'flex',flexDirection:'column',gap:12}}>
+      {list.map(ev=>(
+        <Cd key={ev.id} onClick={()=>nav('event-detail',ev)} p={0} sx={{overflow:'hidden'}}>
+          {ev.id==='e1'&&<ChamberHall h={110}/>}
+          <div style={{padding:13}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <Ey c={ev.dday<=7?T.gold:T.textMid}>{ev.tag}</Ey>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:11,fontFamily:T.fontMono,color:ev.dday<=7?T.gold:T.textLow}}>D-{ev.dday}</span>
+                <button onClick={e=>{e.stopPropagation();toggleFav(ev.id);}} style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:favorited.has(ev.id)?T.red:T.textLow,fontSize:17,outline:'none',lineHeight:1}}>{favorited.has(ev.id)?'♥':'♡'}</button>
+              </div>
+            </div>
+            <div style={{fontFamily:T.fontKr,fontSize:15,fontWeight:600,color:T.textHi,letterSpacing:-0.3,marginBottom:4,lineHeight:1.35}}>{ev.title}</div>
+            <div style={{fontSize:11,color:T.textMid,marginBottom:3}}>{fmtDate(ev.date)} · {ev.time}</div>
+            <div style={{fontSize:11,color:T.textLow,display:'flex',justifyContent:'space-between'}}>
+              <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'65%'}}>{ev.venue}</span>
+              <span style={{color:(ev.seats.match(/[123]석/)||ev.seats.includes('2세션'))?T.red:T.textLow}}>{ev.seats}</span>
+            </div>
+          </div>
+        </Cd>
+      ))}
+    </div>
+  </div>;
+}
+
+function EventDetailScreen({event,onBack,bookings,setBookings,favorited,toggleFav,showToast}){
+  const ev=event||EVENTS[0];
+  const isChopin=ev.id==='e1';
+  const booked=bookings.some(b=>b.title===ev.title&&b.type==='event');
+  const faved=favorited.has(ev.id);
+  function apply(){
+    if(booked)return;
+    setBookings(b=>[{id:'b'+Date.now(),type:'event',title:ev.title,date:`${fmtDate(ev.date)} ${ev.time}`,status:'대기',code:genCode()},...b]);
+    showToast('신청이 완료되었습니다');
+  }
+  return <div style={{flex:1,display:'flex',flexDirection:'column',overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:100}}>
+    <div style={{position:'relative',flexShrink:0}}>
+      {isChopin?<ChamberHall h={200}/>:<Placeholder tone={ev.tone} height={200}/>}
+      <button onClick={onBack} style={{position:'absolute',top:12,left:16,width:34,height:34,borderRadius:17,background:'rgba(10,14,20,0.55)',backdropFilter:'blur(10px)',border:`0.5px solid ${T.hairline}`,color:T.textHi,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',padding:0,outline:'none'}}>‹</button>
+      <button onClick={()=>toggleFav(ev.id)} style={{position:'absolute',top:12,right:16,width:34,height:34,borderRadius:17,background:'rgba(10,14,20,0.55)',backdropFilter:'blur(10px)',border:`0.5px solid ${T.hairline}`,color:faved?T.red:T.textHi,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center',padding:0,outline:'none'}}>{faved?'♥':'♡'}</button>
+    </div>
+    <div style={{padding:'20px 20px 20px',flex:1}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Ey c={ev.dday<=7?T.gold:T.blue}>{ev.category}</Ey><span style={{fontSize:11,fontFamily:T.fontMono,color:T.textMid}}>D-{ev.dday}</span></div>
+      <div style={{fontFamily:T.fontSerif,fontSize:23,fontWeight:500,color:T.textHi,letterSpacing:-0.5,lineHeight:1.3,marginBottom:10}}>{ev.title}</div>
+      <div style={{fontSize:13,color:T.text,lineHeight:1.75,marginBottom:20}}>{ev.summary}</div>
+      <Cd p={0}>
+        {[['일시',`${fmtDate(ev.date)} ${ev.time}`],['장소',ev.venue],['진행',ev.artist],['모집',ev.capacity],['잔여',ev.seats]].map((r,i,a)=>(
+          <div key={r[0]} style={{display:'flex',padding:'12px 16px',borderBottom:i<a.length-1?`0.5px solid ${T.divider}`:'none'}}>
+            <span style={{width:50,fontSize:12,color:T.textMid,flexShrink:0}}>{r[0]}</span>
+            <span style={{flex:1,fontSize:13,color:T.textHi}}>{r[1]}</span>
+          </div>
+        ))}
+      </Cd>
+      <div style={{marginTop:16,padding:'12px 14px',borderRadius:12,background:'rgba(201,169,97,0.05)',border:`0.5px solid rgba(201,169,97,0.15)`}}>
+        <Ey c={T.gold}>NOTICE</Ey>
+        <ul style={{margin:'8px 0 0 14px',color:T.textMid,fontSize:12,lineHeight:1.9}}>
+          <li>프라이빗클럽 회원 전용, 동반인 1인 가능</li>
+          <li>취소는 행사 3일 전까지 / 무단 불참 시 3개월 제한</li>
+          <li>드레스코드: 비즈니스 캐주얼 이상</li>
+        </ul>
+      </div>
+    </div>
+    <div style={{position:'sticky',bottom:0,padding:'12px 20px 28px',background:'linear-gradient(to top,rgba(10,14,20,1) 60%,transparent)',flexShrink:0}}>
+      <Bt v={booked?'ghost':'primary'} full sz="lg" onClick={apply} disabled={booked}>{booked?'신청 완료 ✓':'신청하기'}</Bt>
+    </div>
+  </div>;
+}
+
+function BookingsScreen({bookings,setBookings,showToast}){
+  const[tab,setTab]=useState('전체');
+  const list=tab==='전체'?bookings:tab==='행사'?bookings.filter(b=>b.type==='event'):bookings.filter(b=>b.type==='consult');
+  function cancel(id){setBookings(b=>b.filter(x=>x.id!==id));showToast('신청이 취소되었습니다');}
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <Hdr title="내 신청 내역" sub={`총 ${bookings.length}건`}/>
+    <div style={{padding:'0 20px 14px',display:'flex',gap:8}}>
+      {['전체','행사','상담'].map(t=><Chip key={t} active={tab===t} onClick={()=>setTab(t)}>{t}</Chip>)}
+    </div>
+    {list.length===0&&<div style={{padding:'60px 20px',textAlign:'center',color:T.textMid,fontSize:14,fontFamily:T.fontKr}}>신청 내역이 없습니다</div>}
+    <div style={{padding:'0 20px',display:'flex',flexDirection:'column',gap:10}}>
+      {list.map(b=>(
+        <Cd key={b.id} p={15}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:9}}>
+            <Ey c={b.type==='event'?T.gold:T.blue}>{b.type==='event'?'행사':'PB 상담'} · {b.code}</Ey>
+            <span style={{padding:'3px 10px',borderRadius:999,fontSize:10,fontFamily:T.fontMono,fontWeight:600,color:b.status==='확정'?T.green:T.orange,background:b.status==='확정'?'rgba(91,201,140,0.12)':'rgba(232,147,90,0.12)',border:`0.5px solid ${b.status==='확정'?'rgba(91,201,140,0.3)':'rgba(232,147,90,0.3)'}`}}>{b.status}</span>
+          </div>
+          <div style={{fontFamily:T.fontKr,fontSize:14,fontWeight:600,color:T.textHi,marginBottom:4,lineHeight:1.35}}>{b.title}</div>
+          <div style={{fontFamily:T.fontMono,fontSize:11,color:T.textMid,marginBottom:12}}>{b.date}</div>
+          <div style={{display:'flex',gap:8}}><Bt v="ghost" sz="sm">일정 추가</Bt><Bt v="danger" sz="sm" onClick={()=>cancel(b.id)}>취소</Bt></div>
+        </Cd>
+      ))}
+    </div>
+  </div>;
+}
+
+function ConsultScreen({onBack,nav,setBookings,showToast}){
+  const[step,setStep]=useState(1);
+  const[pb,setPb]=useState(null);
+  const[area,setArea]=useState(null);
+  const[date,setDate]=useState(null);
+  const[selTime,setSelTime]=useState(null);
+  const days=useMemo(()=>{
+    const out=[];
+    for(let i=1;i<=14;i++){
+      const d=new Date(2026,4,5+i);
+      out.push({key:`${d.getMonth()+1}-${d.getDate()}`,m:d.getMonth()+1,d:d.getDate(),dow:['일','월','화','수','목','금','토'][d.getDay()],we:d.getDay()===0||d.getDay()===6});
+    }return out;
+  },[]);
+  const canNext=(step===1&&pb)||(step===2&&area)||(step===3&&date&&selTime);
+  const selPb=PBS.find(p=>p.id===pb);
+  function confirm(){
+    setBookings(b=>[{id:'b'+Date.now(),type:'consult',title:`${selPb?.name} ${selPb?.title} · ${CONSULT_AREAS.find(a=>a.id===area)?.label}`,date:`5월 ${date?.split('-')[1]}일 ${selTime}`,status:'대기',code:genCode()},...b]);
+    showToast('상담 예약이 확정되었습니다');
+    nav('bookings');
+  }
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:110}}>
+    <Hdr title="PB 상담 예약" onBack={step===1?onBack:()=>setStep(step-1)} sub={`${step}/4단계`}/>
+    <div style={{padding:'0 20px 18px',display:'flex',gap:5}}>
+      {[1,2,3,4].map(n=><div key={n} style={{flex:1,height:3,borderRadius:2,background:step>=n?T.blue:T.divider,transition:'background .3s'}}/>)}
+    </div>
+    <div style={{padding:'0 20px'}}>
+      {step===1&&<>
+        <div style={{fontFamily:T.fontSerif,fontSize:21,color:T.textHi,lineHeight:1.35,marginBottom:6}}>담당 PB를<br/>선택해 주세요</div>
+        <div style={{fontSize:12,color:T.textMid,marginBottom:18}}>전담 PB 4인 중 선택하실 수 있습니다</div>
+        <div style={{display:'flex',flexDirection:'column',gap:11}}>
+          {PBS.map(p=>{const on=pb===p.id;return(
+            <button key={p.id} onClick={()=>setPb(p.id)} style={{display:'flex',alignItems:'center',gap:14,padding:'15px',borderRadius:16,background:on?T.elevated:T.surface,border:`0.5px solid ${on?T.blue:T.hairline}`,cursor:'pointer',textAlign:'left',outline:'none',boxShadow:on?`0 0 0 1px ${T.blue},0 4px 20px ${T.blueGlow}`:'none'}}>
+              <div style={{position:'relative',flexShrink:0}}>
+                <PBAvatar name={p.name} hue={p.hue} size={54}/>
+                {on&&<div style={{position:'absolute',bottom:0,right:0,width:17,height:17,borderRadius:9,background:T.blue,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff',border:`2px solid ${T.bg}`}}>✓</div>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:3}}>
+                  <span style={{fontFamily:T.fontKr,fontSize:16,fontWeight:600,color:T.textHi}}>{p.name}</span>
+                  <span style={{fontFamily:T.fontMono,fontSize:10,color:T.textMid}}>{p.tenure}</span>
+                </div>
+                <div style={{fontSize:12,color:T.textMid,marginBottom:3}}>{p.title} · {p.center}</div>
+                <div style={{fontSize:11,color:on?T.blue:T.textLow,fontFamily:T.fontMono}}>{p.specialty}</div>
+              </div>
+              <div style={{flexShrink:0,textAlign:'right'}}>
+                <div style={{fontSize:15,color:p.avail.includes('오늘')?T.green:T.orange}}>{p.avail.includes('오늘')?'●':'◐'}</div>
+                <div style={{fontSize:10,color:T.textMid,fontFamily:T.fontMono,marginTop:2}}>{p.avail}</div>
+              </div>
+            </button>
+          );})}
+        </div>
+      </>}
+      {step===2&&<>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18,padding:'13px 14px',borderRadius:14,background:T.elevated,border:`0.5px solid ${T.hairline}`}}>
+          <PBAvatar name={selPb?.name||''} hue={selPb?.hue||210} size={42}/>
+          <div><div style={{fontFamily:T.fontKr,fontSize:14,fontWeight:600,color:T.textHi}}>{selPb?.name} {selPb?.title}</div>
+            <div style={{fontSize:11,color:T.textMid,marginTop:2}}>{selPb?.specialty} · {selPb?.center}</div></div>
+        </div>
+        <div style={{fontFamily:T.fontSerif,fontSize:21,color:T.textHi,lineHeight:1.35,marginBottom:6}}>어떤 분야의 상담이<br/>필요하신가요?</div>
+        <div style={{fontSize:12,color:T.textMid,marginBottom:18}}>선택하신 분야 중심으로 상담이 진행됩니다</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {CONSULT_AREAS.map(a=>{const on=area===a.id;return(
+            <button key={a.id} onClick={()=>setArea(a.id)} style={{padding:'15px 13px',borderRadius:14,textAlign:'left',background:on?T.metalBlue:T.surface,border:`0.5px solid ${on?T.blue:T.hairline}`,cursor:'pointer',fontFamily:T.fontKr,outline:'none',boxShadow:on?`0 0 0 1px ${T.blue},0 4px 16px ${T.blueGlow}`:'none'}}>
+              <div style={{fontSize:21,color:on?T.blue:T.gold,marginBottom:7}}>{a.icon}</div>
+              <div style={{fontSize:13,fontWeight:600,color:T.textHi,marginBottom:3}}>{a.label}</div>
+              <div style={{fontSize:10,color:T.textMid,lineHeight:1.4}}>{a.desc}</div>
+            </button>
+          );})}
+        </div>
+      </>}
+      {step===3&&<>
+        <div style={{fontFamily:T.fontSerif,fontSize:21,color:T.textHi,lineHeight:1.35,marginBottom:18}}>편한 일시를<br/>선택해 주세요</div>
+        <div style={{fontSize:11,color:T.textMid,marginBottom:10,fontFamily:T.fontMono,letterSpacing:1}}>DATE · 상담 약 40분</div>
+        <div style={{display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none',paddingBottom:16,WebkitOverflowScrolling:'touch'}}>
+          {days.map(d=>{const on=date===d.key;return(
+            <button key={d.key} onClick={()=>!d.we&&setDate(d.key)} style={{flexShrink:0,width:52,padding:'11px 0',borderRadius:10,background:on?T.blue:T.surface,border:`0.5px solid ${on?T.blue:T.hairline}`,color:d.we?T.textDim:(on?'#0A0E14':T.textHi),cursor:d.we?'default':'pointer',fontFamily:T.fontKr,opacity:d.we?0.35:1,outline:'none'}}>
+              <div style={{fontSize:9,opacity:0.7}}>{d.dow}</div>
+              <div style={{fontSize:17,fontWeight:600,marginTop:3}}>{d.d}</div>
+              <div style={{fontSize:8,opacity:0.55,marginTop:2}}>{d.m}월</div>
+            </button>
+          );})}
+        </div>
+        {date&&<>
+          <div style={{fontSize:11,color:T.textMid,marginBottom:10,fontFamily:T.fontMono,letterSpacing:1}}>TIME</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+            {['10:00','11:00','14:00','15:00','16:00','17:00'].map(t=>{const on=selTime===t,taken=t==='14:00';return(
+              <button key={t} onClick={()=>!taken&&setSelTime(t)} style={{padding:'13px 0',borderRadius:10,background:on?T.blue:(taken?'transparent':T.surface),border:`0.5px solid ${on?T.blue:T.hairline}`,color:taken?T.textDim:(on?'#0A0E14':T.textHi),textDecoration:taken?'line-through':'none',fontFamily:T.fontMono,fontSize:14,fontWeight:600,cursor:taken?'default':'pointer',outline:'none'}}>{t}</button>
+            );})}
+          </div>
+        </>}
+      </>}
+      {step===4&&<>
+        <div style={{textAlign:'center',marginBottom:22}}>
+          <div style={{margin:'0 auto 14px',width:58,height:58,borderRadius:29,background:T.metalBlue,border:`0.5px solid ${T.blue}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,color:T.blue}}>✓</div>
+          <div style={{fontFamily:T.fontSerif,fontSize:21,color:T.textHi,lineHeight:1.35}}>아래 내용으로<br/>예약을 확정합니다</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:13,padding:'15px',borderRadius:14,background:T.elevated,border:`0.5px solid ${T.hairline}`,marginBottom:14}}>
+          <PBAvatar name={selPb?.name||''} hue={selPb?.hue||210} size={50}/>
+          <div><div style={{fontSize:12,color:T.textMid,fontFamily:T.fontMono,letterSpacing:1,marginBottom:4}}>담당 PB</div>
+            <div style={{fontFamily:T.fontKr,fontSize:15,fontWeight:600,color:T.textHi}}>{selPb?.name} {selPb?.title}</div>
+            <div style={{fontSize:11,color:T.textMid,marginTop:2}}>{selPb?.center} · {selPb?.specialty}</div></div>
+        </div>
+        <Cd p={0}>
+          {[['분야',CONSULT_AREAS.find(a=>a.id===area)?.label||'-'],['일시',`5월 ${date?.split('-')[1]}일 (${days.find(d=>d.key===date)?.dow||''}) ${selTime}`],['예상 소요','약 40분']].map((r,i,a)=>(
+            <div key={r[0]} style={{display:'flex',padding:'13px 15px',borderBottom:i<a.length-1?`0.5px solid ${T.divider}`:'none'}}>
+              <span style={{width:68,fontSize:12,color:T.textMid}}>{r[0]}</span>
+              <span style={{flex:1,fontSize:13,color:T.textHi,fontWeight:500}}>{r[1]}</span>
+            </div>
+          ))}
+        </Cd>
+        <div style={{marginTop:12,padding:'12px 14px',borderRadius:12,background:'rgba(201,169,97,0.05)',border:`0.5px solid rgba(201,169,97,0.15)`}}>
+          <Ey c={T.gold}>NOTE</Ey>
+          <div style={{fontSize:12,color:T.text,lineHeight:1.7,marginTop:6}}>예약 확정 후 24시간 내 담당 PB로부터 사전 자료 요청이 발송됩니다.</div>
+        </div>
+      </>}
+    </div>
+    <div style={{position:'sticky',bottom:0,padding:'14px 20px 32px',background:'linear-gradient(to top,rgba(10,14,20,1) 65%,transparent)'}}>
+      <Bt v={step===4?'gold':'primary'} full sz="lg" disabled={step!==4&&!canNext} onClick={()=>step===4?confirm():setStep(step+1)}>
+        {step===1?'이 PB로 예약하기':step===2?'다음':step===3?'예약 내용 확인':'예약 확정하기'}
+      </Bt>
+    </div>
+  </div>;
+}
+
+function CardsScreen({nav}){
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <div style={{padding:'4px 20px 0'}}><Ey>WEEKLY · 2026 May Vol.18</Ey>
+      <div style={{fontFamily:T.fontSerif,fontSize:25,fontWeight:500,color:T.textHi,letterSpacing:-0.5,marginTop:5,marginBottom:16}}>카드뉴스</div></div>
+    <div style={{padding:'0 20px 16px',overflowX:'auto',scrollbarWidth:'none'}}><CardThumb card={CARDNEWS[0]} onClick={()=>nav('card-detail',CARDNEWS[0])} wide/></div>
+    <div style={{padding:'0 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+      {CARDNEWS.slice(1).map(c=><CardThumb key={c.id} card={c} onClick={()=>nav('card-detail',c)}/>)}
+    </div>
+  </div>;
+}
+
+function CardDetailScreen({card,onBack,nav}){
+  const c=card||CARDNEWS[0];
+  const[page,setPage]=useState(0);
+  const acc={blue:T.blue,gold:T.gold,mono:T.textMid,cool:T.cyan}[c.tone];
+  const bg={blue:T.metalBlue,gold:'linear-gradient(135deg,#2A2418,#3D3422)',mono:T.metalDark,cool:'linear-gradient(135deg,#0F1A26,#19283A)'}[c.tone];
+  const pages=[
+    {kind:'cover',text:c.cover},
+    {kind:'lead',h:'한 줄로 정리하면',b:'시장의 컨센서스 뒤에 있는 작은 단어 하나가 향후 6개월의 자산배분을 가른다.'},
+    {kind:'point',n:'01',h:'점도표가 말한 것',b:'연준 위원 19명 중 11명이 연내 추가 인하에 동의. 시장 기대치보다 매파적이지만 방향성은 유지.'},
+    {kind:'stat',big:'4.25%',sub:'연말 기준금리 중간값 (5월 FOMC)'},
+    {kind:'point',n:'02',h:'포트폴리오 함의',b:'듀레이션 중립, 크레딧 IG 비중 확대, 신흥국 통화별 차별화. 6월까지 관망.'},
+    {kind:'cta',text:'담당 PB와 더 깊이 이야기 나누기'},
+  ];
+  const cur=pages[Math.min(page,pages.length-1)];
+  const tx=useRef(null);
+  function go(d){setPage(p=>Math.max(0,Math.min(pages.length-1,p+d)));}
+  return <div style={{flex:1,display:'flex',flexDirection:'column',background:'#000',overflow:'hidden'}}
+    onTouchStart={e=>{tx.current=e.touches[0].clientX;}}
+    onTouchEnd={e=>{if(tx.current===null)return;const dx=e.changedTouches[0].clientX-tx.current;if(Math.abs(dx)>40)go(dx<0?1:-1);tx.current=null;}}>
+    <div style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+      <button onClick={onBack} style={{width:32,height:32,borderRadius:16,background:'rgba(255,255,255,0.1)',border:'none',color:T.textHi,cursor:'pointer',fontSize:15,padding:0,outline:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+      <div style={{flex:1}}><Ey c={acc}>{c.tag} · {c.read} 읽기</Ey></div>
+      <button onClick={()=>nav('consult')} style={{background:'none',border:`0.5px solid ${T.hairline}`,borderRadius:999,padding:'5px 12px',color:T.textMid,fontSize:11,cursor:'pointer',fontFamily:T.fontKr,outline:'none'}}>상담 예약</button>
+    </div>
+    <div style={{padding:'4px 16px 11px',display:'flex',gap:3,flexShrink:0}}>
+      {pages.map((_,i)=><div key={i} style={{flex:1,height:2.5,borderRadius:2,background:i<page?T.textHi:i===page?acc:'rgba(255,255,255,0.18)'}}/>)}
+    </div>
+    <div style={{flex:1,padding:'0 16px 16px',display:'flex',overflow:'hidden'}}>
+      <div style={{flex:1,borderRadius:18,background:bg,border:`0.5px solid ${T.hairline}`,padding:24,display:'flex',flexDirection:'column',position:'relative',overflow:'hidden'}}>
+        <div onClick={()=>go(-1)} style={{position:'absolute',left:0,top:0,bottom:0,width:'35%',cursor:'pointer',zIndex:1}}/>
+        <div onClick={()=>go(1)} style={{position:'absolute',right:0,top:0,bottom:0,width:'65%',cursor:'pointer',zIndex:1}}/>
+        <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',height:'100%'}}>
+          <Ey c={acc}>{String(page+1).padStart(2,'0')} / {pages.length}</Ey>
+          <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px 0'}}>
+            {cur.kind==='cover'&&<div style={{fontFamily:T.fontSerif,fontSize:30,fontWeight:500,color:T.textHi,lineHeight:1.3,whiteSpace:'pre-line'}}>{cur.text}</div>}
+            {cur.kind==='lead'&&<><div style={{fontSize:12,color:acc,fontFamily:T.fontMono,letterSpacing:1,marginBottom:10}}>{cur.h}</div><div style={{fontFamily:T.fontSerif,fontSize:19,color:T.textHi,lineHeight:1.55}}>{cur.b}</div></>}
+            {cur.kind==='point'&&<><div style={{fontFamily:T.fontSerif,fontSize:42,color:acc,marginBottom:10,lineHeight:1}}>{cur.n}</div><div style={{fontFamily:T.fontKr,fontSize:17,fontWeight:600,color:T.textHi,marginBottom:12,letterSpacing:-0.3}}>{cur.h}</div><div style={{fontSize:14,color:T.text,lineHeight:1.75}}>{cur.b}</div></>}
+            {cur.kind==='stat'&&<div style={{textAlign:'center'}}><div style={{fontFamily:T.fontSerif,fontSize:58,color:T.textHi,lineHeight:1,letterSpacing:-2}}>{cur.big}</div><div style={{fontSize:13,color:T.textMid,marginTop:14,lineHeight:1.6}}>{cur.sub}</div></div>}
+            {cur.kind==='cta'&&<><div style={{fontFamily:T.fontSerif,fontSize:19,color:T.textHi,lineHeight:1.45,marginBottom:22}}>{cur.text}</div><Bt v="gold" full onClick={()=>nav('consult')}>PB 상담 예약하기</Bt></>}
+          </div>
+          <div style={{display:'flex',justifyContent:'center',gap:6}}>
+            {pages.map((_,i)=><div key={i} onClick={()=>setPage(i)} style={{width:i===page?18:6,height:6,borderRadius:3,background:i===page?acc:'rgba(255,255,255,0.25)',cursor:'pointer',transition:'all .25s'}}/>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function MeScreen({tier,nav,bookings,favorited}){
+  const tm=TIERS[tier];
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <Hdr title="마이페이지"/>
+    <div style={{padding:'0 20px 18px'}}>
+      <div style={{padding:20,borderRadius:20,background:tm.grad,position:'relative',overflow:'hidden',boxShadow:'0 14px 38px rgba(0,0,0,0.32)'}}>
+        <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at 90% -10%,rgba(255,255,255,0.2),transparent 55%)',pointerEvents:'none'}}/>
+        <div style={{position:'relative'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:26}}>
+            <div>
+              <div style={{fontFamily:T.fontMono,fontSize:9,letterSpacing:3,color:'rgba(0,0,0,0.42)',marginBottom:5}}>APEX PRIVATE CLUB</div>
+              <div style={{fontSize:21,fontWeight:800,letterSpacing:3,color:'#0A0E14',fontFamily:T.fontMono}}>{tm.label}</div>
+              <div style={{fontSize:11,color:'rgba(0,0,0,0.48)',marginTop:3,fontFamily:T.fontKr}}>{tm.ko} · {tm.desc}</div>
+            </div>
+            <div style={{textAlign:'right',fontFamily:T.fontMono,fontSize:9,color:'rgba(0,0,0,0.52)',lineHeight:1.7}}>MEMBER<br/>0072·1158</div>
+          </div>
+          <div style={{fontFamily:T.fontKr,fontSize:19,fontWeight:700,color:'#0A0E14',marginBottom:4,letterSpacing:-0.3}}>김도현</div>
+          <div style={{fontSize:11,color:'rgba(0,0,0,0.52)',fontFamily:T.fontMono,letterSpacing:1}}>SINCE 2019.03 · 7Y</div>
+        </div>
+      </div>
+    </div>
+    <div style={{padding:'0 20px 20px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+      {[[String(bookings.filter(b=>b.type==='event').length),'참여 행사'],[String(bookings.filter(b=>b.type==='consult').length),'PB 상담'],[String(favorited.size),'관심 행사']].map(s=>(
+        <Cd key={s[1]} p={13} sx={{textAlign:'center'}}>
+          <div style={{fontFamily:T.fontSerif,fontSize:24,color:T.textHi}}>{s[0]}</div>
+          <div style={{fontSize:10,color:T.textMid,marginTop:3,fontFamily:T.fontKr}}>{s[1]}</div>
+        </Cd>
+      ))}
+    </div>
+    <div style={{padding:'0 20px 14px'}}><Ey>TIER BENEFITS</Ey></div>
+    <div style={{padding:'0 20px 20px',display:'flex',flexDirection:'column',gap:8}}>
+      {[['◈','전담 PB 1:1 서비스','24시간 우선 연결'],['◇','프리미엄 행사 초청','문화·세미나 연 12+ 회'],['◉','헤리티지 서비스','상속·증여 전문 설계']].map(([ic,t,s])=>(
+        <div key={t} style={{display:'flex',alignItems:'center',gap:13,padding:'13px 15px',borderRadius:14,background:T.surface,border:`0.5px solid ${T.hairline}`}}>
+          <span style={{fontSize:20,color:T.gold,flexShrink:0}}>{ic}</span>
+          <div><div style={{fontFamily:T.fontKr,fontSize:13,fontWeight:600,color:T.textHi}}>{t}</div>
+            <div style={{fontSize:11,color:T.textMid,marginTop:2}}>{s}</div></div>
+        </div>
+      ))}
+    </div>
+    <div style={{padding:'0 20px 8px'}}><Ey>ACCOUNT</Ey></div>
+    <div style={{padding:'4px 20px'}}>
+      <Cd p={0}>
+        {[{l:'내 신청 내역',s:`${bookings.length}건`,go:'bookings'},{l:'PB 상담 예약',s:'강현우 수석',go:'consult'},{l:'관심 행사',s:`${favorited.size}건`},{l:'알림 설정'},{l:'회원 혜택 안내'},{l:'로그아웃',danger:true}].map((m,i,a)=>(
+          <button key={m.l} onClick={()=>m.go&&nav(m.go)} style={{display:'flex',alignItems:'center',width:'100%',padding:'15px 16px',background:'transparent',border:'none',borderBottom:i<a.length-1?`0.5px solid ${T.divider}`:'none',cursor:'pointer',textAlign:'left',outline:'none'}}>
+            <span style={{flex:1,fontFamily:T.fontKr,fontSize:14,color:m.danger?T.red:T.textHi,letterSpacing:-0.2}}>{m.l}</span>
+            {m.s&&<span style={{fontSize:12,color:T.textMid,marginRight:8}}>{m.s}</span>}
+            {!m.danger&&<span style={{color:T.textLow,fontSize:16}}>›</span>}
+          </button>
+        ))}
+      </Cd>
+    </div>
+  </div>;
+}
+
+function NotifsScreen({onBack,notifs,markAllRead}){
+  const meta={event:{color:T.gold,label:'행사',icon:'◇'},consult:{color:T.blue,label:'상담',icon:'◈'},card:{color:T.cyan,label:'카드뉴스',icon:'▣'},system:{color:T.textMid,label:'시스템',icon:'○'}};
+  const unread=notifs.filter(n=>n.unread).length;
+  return <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingBottom:16}}>
+    <Hdr title="알림" onBack={onBack} sub={unread>0?`읽지 않은 알림 ${unread}건`:undefined}
+      right={unread>0&&<button onClick={markAllRead} style={{background:'none',border:'none',color:T.blue,fontSize:12,cursor:'pointer',fontFamily:T.fontKr,outline:'none'}}>모두 읽음</button>}/>
+    <div style={{padding:'0 20px',display:'flex',flexDirection:'column'}}>
+      {notifs.map((n,i)=>{const m=meta[n.type];return(
+        <div key={n.id} style={{padding:'13px 0',display:'flex',gap:13,borderTop:i===0?`0.5px solid ${T.divider}`:'none',borderBottom:`0.5px solid ${T.divider}`,opacity:n.unread?1:0.5}}>
+          <div style={{width:37,height:37,borderRadius:10,flexShrink:0,background:'rgba(139,151,168,0.07)',border:`0.5px solid ${T.hairline}`,color:m.color,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>{m.icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+              <Ey c={m.color}>{m.label}</Ey>
+              <span style={{fontSize:10,color:T.textLow,fontFamily:T.fontMono}}>{n.time}</span>
+            </div>
+            <div style={{fontFamily:T.fontKr,fontSize:13,color:T.textHi,lineHeight:1.55,fontWeight:n.unread?500:400}}>{n.title}</div>
+          </div>
+          {n.unread&&<div style={{width:7,height:7,borderRadius:4,background:T.blue,marginTop:6,flexShrink:0}}/>}
+        </div>
+      );})}
+    </div>
+  </div>;
+}
+
+/* ─── ROOT ─── */
+function App(){
+  const[tier,setTier]=useState('Peony');
+  const[stack,setStack]=useState([{s:'home'}]);
+  const[bookings,setBookings]=useState(BOOKINGS_INIT);
+  const[notifs,setNotifs]=useState(NOTIFS_INIT);
+  const[favorited,setFavorited]=useState(new Set());
+  const[toast,setToast]=useState(null);
+  const top=stack[stack.length-1];
+  const nav=(s,p)=>{
+    if(['home','events','cards','me'].includes(s))setStack([{s,p}]);
+    else setStack(st=>[...st,{s,p}]);
+  };
+  const back=()=>setStack(st=>st.length>1?st.slice(0,-1):st);
+  const showToast=msg=>setToast(msg);
+  const toggleFav=id=>setFavorited(f=>{const n=new Set(f);n.has(id)?n.delete(id):n.add(id);return n;});
+  const markAllRead=()=>setNotifs(ns=>ns.map(n=>({...n,unread:false})));
+  const unread=notifs.filter(n=>n.unread).length;
+  const tabId=['home','events','cards','me'].includes(top.s)?top.s:'home';
+  const showTab=['home','events','cards','me'].includes(top.s);
+
+  const props={nav,back,bookings,setBookings,favorited,toggleFav,showToast,tier};
+  let screen;
+  switch(top.s){
+    case 'home':          screen=<HomeScreen {...props}/>; break;
+    case 'events':        screen=<EventsScreen {...props}/>; break;
+    case 'event-detail':  screen=<EventDetailScreen event={top.p} onBack={back} {...props}/>; break;
+    case 'bookings':      screen=<BookingsScreen {...props}/>; break;
+    case 'consult':       screen=<ConsultScreen onBack={back} {...props}/>; break;
+    case 'cards':         screen=<CardsScreen nav={nav}/>; break;
+    case 'card-detail':   screen=<CardDetailScreen card={top.p} onBack={back} nav={nav}/>; break;
+    case 'me':            screen=<MeScreen {...props}/>; break;
+    case 'notifications': screen=<NotifsScreen onBack={back} notifs={notifs} markAllRead={markAllRead}/>; break;
+    default:              screen=null;
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'#0A0E14',display:'flex',flexDirection:'column',fontFamily:T.fontKr,maxWidth:480,margin:'0 auto',boxShadow:'0 0 80px rgba(0,0,0,0.8)'}}>
+      <style>{`*{-webkit-tap-highlight-color:transparent;scrollbar-width:none}::-webkit-scrollbar{display:none}input,button,select{-webkit-appearance:none}`}</style>
+      <StatusBar unread={unread}/>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minHeight:0}}>
+        {screen}
+      </div>
+      {showTab&&<TabBar active={tabId} onChange={nav} unread={unread}/>}
+      {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
